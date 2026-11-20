@@ -1,8 +1,12 @@
+import logging
 from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError
 from aiogram.utils.markdown import hcode
 from html import escape
 
 from app.domain.models import UserRequest
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramNotifier:
@@ -20,10 +24,17 @@ class TelegramNotifier:
             "<b>Описание:</b>\n"
         )
         pages = _split_description(request.description)
+        delivered = 0
         for chat_id in chat_ids:
-            await self._bot.send_message(chat_id=chat_id, text=text + pages[0])
-            for page in pages[1:]:
-                await self._bot.send_message(chat_id=chat_id, text=page)
+            try:
+                await self._bot.send_message(chat_id=chat_id, text=text + pages[0])
+                for page in pages[1:]:
+                    await self._bot.send_message(chat_id=chat_id, text=page)
+                delivered += 1
+            except TelegramAPIError:
+                logger.exception("Could not send request to admin chat %s", chat_id)
+        if delivered == 0:
+            raise RuntimeError("Could not deliver request to any admin chat")
 
 
 def _split_description(description: str) -> list[str]:

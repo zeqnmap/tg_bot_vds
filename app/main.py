@@ -4,6 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramAPIError
 from aiogram.types import BotCommand, MenuButtonCommands
 
 from app.application.services.request_service import RequestService
@@ -26,19 +27,20 @@ async def main() -> None:
         level=settings.log_level,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
-    if not settings.admin_chat_ids:
-        logging.getLogger(__name__).warning(
-            "ADMIN_CHAT_IDS is empty: applications will not be delivered to admins."
-        )
-
     bot = Bot(
         token=settings.bot_token.get_secret_value(),
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dispatcher = create_dispatcher(settings, bot)
     try:
-        await bot.set_my_commands([BotCommand(command="start", description="Начать заново")])
-        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+        try:
+            await bot.set_my_commands([BotCommand(command="start", description="Начать заново")])
+            await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+        except TelegramAPIError:
+            logging.getLogger(__name__).warning(
+                "Could not configure Telegram command menu; polling will continue.",
+                exc_info=True,
+            )
         await bot.delete_webhook(drop_pending_updates=True)
         await dispatcher.start_polling(bot)
     finally:

@@ -28,13 +28,23 @@ class Settings(BaseSettings):
     @classmethod
     def parse_admin_chat_ids(cls, value: object) -> list[int]:
         if value is None or value == "":
-            return []
+            raise ValueError("ADMIN_CHAT_IDS must be set in .env")
         if isinstance(value, str):
             result = [int(item.strip()) for item in value.split(",") if item.strip()]
             if not result:
                 raise ValueError("ADMIN_CHAT_IDS must contain at least one chat ID")
             return result
+        if not value:
+            raise ValueError("ADMIN_CHAT_IDS must contain at least one chat ID")
         return value  # type: ignore[return-value]
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def validate_log_level(cls, value: object) -> str:
+        level = str(value).strip().upper()
+        if level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise ValueError("LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR or CRITICAL")
+        return level
 
 
 @lru_cache
